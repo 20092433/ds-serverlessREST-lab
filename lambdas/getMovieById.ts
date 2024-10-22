@@ -29,6 +29,8 @@ export const handler: APIGatewayProxyHandlerV2 = async (event, context) => {
       })
     );
     console.log("GetCommand response: ", commandOutput);
+
+
     if (!commandOutput.Item) {
       return {
         statusCode: 404,
@@ -38,9 +40,22 @@ export const handler: APIGatewayProxyHandlerV2 = async (event, context) => {
         body: JSON.stringify({ Message: "Invalid movie Id" }),
       };
     }
+
+    //check for query parameter 
+    const includeCast = event.queryStringParameters?.cast === "true";
+
+     
     const body = {
       data: commandOutput.Item,
     };
+
+    //if request for cast get it
+    if (!includeCast){
+      const castData = await getMovieCast(movieId);
+      body.cast = castData;
+    }
+
+
 
     // Return Response
     return {
@@ -74,4 +89,18 @@ function createDDbDocClient() {
   };
   const translateConfig = { marshallOptions, unmarshallOptions };
   return DynamoDBDocumentClient.from(ddbClient, translateConfig);
+
+  // Helper function to get movie cast
+async function getMovieCast(movieId: number) {
+  const commandInput = {
+    TableName: process.env.CAST_TABLE_NAME, // Ensure this is set in your environment
+    KeyConditionExpression: "movieId = :m",
+    ExpressionAttributeValues: {
+      ":m": movieId,
+    },
+  };
+
+  const castData = await ddbDocClient.query(commandInput);
+  return castData.Items || [];
+}
 }
